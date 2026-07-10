@@ -128,7 +128,15 @@ async function main() {
     while (Date.now() < stopAt) {
       attempt += 1;
       const result = await inspect(page, apiTexts);
-      const snapshot = { ...result, attempt, at: new Date().toISOString(), expiresAt: new Date(expiresAt).toISOString(), itemUrl };
+      const snapshot = {
+        ...result,
+        availableCount: result.possible ? null : 0,
+        inventoryNote: result.possible ? 'Damai does not publish the exact remaining quantity.' : 'No purchasable ticket signal found.',
+        attempt,
+        at: new Date().toISOString(),
+        expiresAt: new Date(expiresAt).toISOString(),
+        itemUrl
+      };
       await writeStatus(snapshot);
       console.log(JSON.stringify(snapshot));
       if (result.possible) {
