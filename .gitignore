@@ -1,0 +1,6 @@
+node_modules/
+browser-profile/
+logs/
+hits/
+data/
+config.json
