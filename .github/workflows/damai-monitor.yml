@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: damai-ticket-monitor
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   monitor:
@@ -38,5 +38,7 @@ jobs:
         env:
           DAMAI_ITEM_URL: https://m.damai.cn/shows/item.html?itemId=1063631004645
           WATCHER_EXPIRES_AT: '2026-07-12T09:00:00+08:00'
+          RUN_FOR_SECONDS: '230'
+          POLL_INTERVAL_SECONDS: '20'
           BARK_KEY: ${{ secrets.BARK_KEY }}
           SMS_WEBHOOK_URL: ${{ secrets.SMS_WEBHOOK_URL }}
