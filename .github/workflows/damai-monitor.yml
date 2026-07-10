@@ -1,0 +1,42 @@
+name: Damai ticket monitor
+
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: damai-ticket-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install --omit=dev
+      - name: Restore Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Check availability
+        run: node src/github-actions-check.js
+        env:
+          DAMAI_ITEM_URL: https://m.damai.cn/shows/item.html?itemId=1063631004645
+          WATCHER_EXPIRES_AT: '2026-07-12T09:00:00+08:00'
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          SMS_WEBHOOK_URL: ${{ secrets.SMS_WEBHOOK_URL }}
