@@ -4,9 +4,11 @@ const itemUrl = process.env.DAMAI_ITEM_URL || 'https://m.damai.cn/shows/item.htm
 const expiresAt = Date.parse(process.env.WATCHER_EXPIRES_AT || '2026-07-12T09:00:00+08:00');
 const barkKey = String(process.env.BARK_KEY || '').trim();
 const smsWebhookUrl = String(process.env.SMS_WEBHOOK_URL || '').trim();
-const purchaseKeywords = ['立即购买', '立即预订', '选座购买', '立即抢购', '提交订单', '去购买'];
-const soldOutKeywords = ['已售罄', '售罄', '缺货登记', '暂时无货', '无票', '不可售', '预售已售罄'];
-const targetHints = ['7月19日', '07.19', '2026.07.19', '周日'];
+const runForMs = Math.max(20_000, Number(process.env.RUN_FOR_SECONDS || 230) * 1000);
+const pollEveryMs = Math.max(15_000, Number(process.env.POLL_INTERVAL_SECONDS || 20) * 1000);
+const purchaseKeywords = ['\u7acb\u5373\u8d2d\u4e70', '\u7acb\u5373\u9884\u8ba2', '\u9009\u5ea7\u8d2d\u4e70', '\u7acb\u5373\u62a2\u8d2d', '\u63d0\u4ea4\u8ba2\u5355', '\u53bb\u8d2d\u4e70'];
+const soldOutKeywords = ['\u5df2\u552e\u7f44', '\u552e\u7f44', '\u7f3a\u8d27\u767b\u8bb0', '\u6682\u65f6\u65e0\u8d27', '\u65e0\u7968', '\u4e0d\u53ef\u552e', '\u9884\u552e\u5df2\u552e\u7f44'];
+const targetHints = ['7\u670819\u65e5', '07.19', '2026.07.19', '\u5468\u65e5'];
 
 function isSleepTime() {
   const hour = Number(new Intl.DateTimeFormat('en-GB', {
@@ -14,11 +16,11 @@ function isSleepTime() {
     hour: '2-digit',
     hourCycle: 'h23'
   }).format(new Date()));
-  return hour >= 0 && hour < 9;
+  return hour < 9;
 }
 
-function compact(value, limit = 900) {
-  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function sendBark(title, body) {
@@ -46,6 +48,52 @@ async function sendSmsWebhook(payload) {
   return true;
 }
 
+async function inspect(page, apiTexts) {
+  apiTexts.length = 0;
+  await page.goto(itemUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+  await wait(4_000);
+  const state = await page.evaluate(({ purchaseKeywords, soldOutKeywords, targetHints }) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const visible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+    };
+    const text = normalize(document.body?.innerText || '');
+    const buttons = Array.from(document.querySelectorAll('button, a, [role="button"], .buybtn, .buy-button, .next-btn, .dm-btn'))
+      .filter(visible)
+      .map((element) => {
+        const label = normalize(element.innerText || element.textContent || element.getAttribute('aria-label') || element.getAttribute('title'));
+        const className = normalize(element.getAttribute('class'));
+        const disabled = Boolean(element.disabled) || element.getAttribute('aria-disabled') === 'true' || element.hasAttribute('disabled') || /disabled|disable|\u4e0d\u53ef|\u552e\u7f44/.test(`${className} ${label}`);
+        return { label, disabled };
+      })
+      .filter((button) => button.label);
+    return {
+      title: document.title,
+      text,
+      activePurchaseButtons: buttons.filter((button) => !button.disabled && purchaseKeywords.some((word) => button.label.includes(word))),
+      soldOutWords: soldOutKeywords.filter((word) => text.includes(word))
+    };
+  }, { purchaseKeywords, soldOutKeywords, targetHints });
+
+  const responseText = apiTexts.join('\n');
+  const apiPurchaseWords = purchaseKeywords.filter((word) => responseText.includes(word));
+  const pagePurchaseWords = purchaseKeywords.filter((word) => state.text.includes(word));
+  const allTargetHints = targetHints.filter((hint) => `${state.text}\n${responseText}`.includes(hint));
+  const hasActiveButton = state.activePurchaseButtons.length > 0;
+  const possible = (hasActiveButton && allTargetHints.length > 0) || (apiPurchaseWords.length > 0 && allTargetHints.length > 0);
+  const status = possible ? (hasActiveButton ? 'AVAILABLE' : 'POSSIBLE_AVAILABLE') : (state.soldOutWords.length ? 'SOLD_OUT' : 'UNKNOWN');
+  const reason = hasActiveButton
+    ? `Active purchase button: ${state.activePurchaseButtons.map((button) => button.label).join(' / ')}`
+    : apiPurchaseWords.length
+      ? `Purchase keyword in Damai response: ${apiPurchaseWords.join(' / ')}`
+      : state.soldOutWords.length
+        ? `Sold-out indicator: ${state.soldOutWords.join(' / ')}`
+        : 'No purchase signal found.';
+  return { status, reason, possible, targetHints: allTargetHints, title: state.title, pagePurchaseWords };
+}
+
 async function main() {
   if (!Number.isFinite(expiresAt) || Date.now() >= expiresAt) {
     console.log('Monitoring window has ended.');
@@ -61,66 +109,28 @@ async function main() {
       const text = await response.text();
       if (text.length <= 2_000_000) apiTexts.push(text);
     } catch {
-      // Responses such as images cannot be read as text.
+      // Ignore binary responses.
     }
   });
 
   try {
-    await page.goto(itemUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await page.waitForTimeout(4_000);
-    const state = await page.evaluate(({ purchaseKeywords, soldOutKeywords, targetHints }) => {
-      const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-      const visible = (element) => {
-        const style = window.getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-      };
-      const text = normalize(document.body?.innerText || '');
-      const buttons = Array.from(document.querySelectorAll('button, a, [role="button"], .buybtn, .buy-button, .next-btn, .dm-btn'))
-        .filter(visible)
-        .map((element) => {
-          const label = normalize(element.innerText || element.textContent || element.getAttribute('aria-label') || element.getAttribute('title'));
-          const className = normalize(element.getAttribute('class'));
-          const disabled = Boolean(element.disabled) || element.getAttribute('aria-disabled') === 'true' || element.hasAttribute('disabled') || /disabled|disable|不可|售罄/.test(`${className} ${label}`);
-          return { label, disabled };
-        })
-        .filter((button) => button.label);
-      return {
-        title: document.title,
-        text,
-        buttons,
-        activePurchaseButtons: buttons.filter((button) => !button.disabled && purchaseKeywords.some((word) => button.label.includes(word))),
-        targetHints: targetHints.filter((hint) => text.includes(hint)),
-        soldOutWords: soldOutKeywords.filter((word) => text.includes(word))
-      };
-    }, { purchaseKeywords, soldOutKeywords, targetHints });
-
-    const responseText = apiTexts.join('\n');
-    const pagePurchaseWords = purchaseKeywords.filter((word) => state.text.includes(word));
-    const apiPurchaseWords = purchaseKeywords.filter((word) => responseText.includes(word));
-    const allTargetHints = targetHints.filter((hint) => `${state.text}\n${responseText}`.includes(hint));
-    const hasTarget = allTargetHints.length > 0;
-    const hasActiveButton = state.activePurchaseButtons.length > 0;
-    const possible = (hasActiveButton && hasTarget) || (apiPurchaseWords.length > 0 && hasTarget);
-    const status = possible ? (hasActiveButton ? 'AVAILABLE' : 'POSSIBLE_AVAILABLE') : (state.soldOutWords.length ? 'SOLD_OUT' : 'UNKNOWN');
-    const reason = hasActiveButton
-      ? `Active purchase button: ${state.activePurchaseButtons.map((button) => button.label).join(' / ')}`
-      : apiPurchaseWords.length
-        ? `Purchase keyword in Damai response: ${apiPurchaseWords.join(' / ')}`
-        : state.soldOutWords.length
-          ? `Sold-out indicator: ${state.soldOutWords.join(' / ')}`
-          : 'No purchase signal found.';
-
-    console.log(JSON.stringify({ status, reason, targetHints: allTargetHints, title: state.title, pagePurchaseWords, at: new Date().toISOString() }));
-    if (!possible) return;
-
-    const title = '大麦可能有票了';
-    const body = `${reason}\n${itemUrl}`;
-    const payload = { title, message: body, itemUrl, status, reason, at: new Date().toISOString() };
-    const channels = await Promise.allSettled([sendBark(title, body), sendSmsWebhook(payload)]);
-    const delivered = channels.some((result) => result.status === 'fulfilled' && result.value === true);
-    if (!delivered) {
-      throw new Error('Ticket signal found, but no Bark Key or SMS webhook is configured.');
+    const stopAt = Math.min(Date.now() + runForMs, expiresAt);
+    let attempt = 0;
+    while (Date.now() < stopAt) {
+      attempt += 1;
+      const result = await inspect(page, apiTexts);
+      console.log(JSON.stringify({ ...result, attempt, at: new Date().toISOString() }));
+      if (result.possible) {
+        const title = '\u5927\u9ea6\u53ef\u80fd\u6709\u7968\u4e86';
+        const body = `${result.reason}\n${itemUrl}`;
+        const payload = { title, message: body, itemUrl, status: result.status, reason: result.reason, at: new Date().toISOString() };
+        const channels = await Promise.allSettled([sendBark(title, body), sendSmsWebhook(payload)]);
+        const delivered = channels.some((channel) => channel.status === 'fulfilled' && channel.value === true);
+        if (!delivered) throw new Error('Ticket signal found, but no push channel is configured.');
+        return;
+      }
+      const nextCheckAt = Math.min(Date.now() + pollEveryMs, stopAt);
+      if (nextCheckAt > Date.now()) await wait(nextCheckAt - Date.now());
     }
   } finally {
     await browser.close();
