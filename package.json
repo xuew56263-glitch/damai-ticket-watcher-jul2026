@@ -1,0 +1,19 @@
+{
+  "name": "damai-ticket-watcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reminder-only Damai ticket availability watcher with mobile alerts.",
+  "scripts": {
+    "start": "node src/index.js",
+    "mobile": "node src/mobile-server.js",
+    "setup": "npm install && npx playwright install chromium",
+    "install-browser": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "mysql2": "^3.17.0",
+    "playwright": "1.61.1",
+    "web-push": "^3.6.7"
+  }
+}
