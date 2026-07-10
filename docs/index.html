@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111827">
+    <title>大麦监测</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">云端监测已启用</p>
+        <h1>大麦余票监测</h1>
+        <p class="event">王俊凯 2026.07.19</p>
+      </header>
+      <section class="status-panel" aria-live="polite">
+        <p class="label">当前状态</p>
+        <strong id="status">加载中</strong>
+        <p id="reason">正在读取最新云端检查结果。</p>
+      </section>
+      <section class="details">
+        <div><span>最近检查</span><b id="checked-at">--</b></div>
+        <div><span>检查次数</span><b id="attempt">--</b></div>
+        <div><span>监测截止</span><b id="expires-at">2026-07-12 09:00</b></div>
+      </section>
+      <a id="ticket-link" class="ticket-link" href="https://m.damai.cn/shows/item.html?itemId=1063631004645" target="_blank" rel="noreferrer">打开大麦场次</a>
+      <p class="refresh">页面每 20 秒刷新显示。余票提醒由 Bark 直接推送。</p>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
