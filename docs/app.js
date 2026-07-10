@@ -25,6 +25,16 @@ async function refresh() {
     document.getElementById('status').dataset.state = state.status || 'UNKNOWN';
     document.getElementById('reason').textContent = state.reason || '未发现可购信号。';
     document.getElementById('checked-at').textContent = formatDate(state.at);
+    const count = document.getElementById('available-count');
+    if (state.availableCount === 0) {
+      count.textContent = '0';
+    } else if (Number.isFinite(state.availableCount) && state.availableCount > 0) {
+      count.textContent = String(state.availableCount);
+    } else if (state.status === 'AVAILABLE' || state.status === 'POSSIBLE_AVAILABLE') {
+      count.textContent = '有票，数量未公开';
+    } else {
+      count.textContent = '--';
+    }
     document.getElementById('attempt').textContent = state.attempt || '--';
     document.getElementById('expires-at').textContent = formatDate(state.expiresAt) || '2026-07-12 09:00';
     if (state.itemUrl) document.getElementById('ticket-link').href = state.itemUrl;
