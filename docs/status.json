@@ -1,14 +1,10 @@
 {
-  "status": "UNKNOWN",
-  "reason": "No purchase signal found.",
-  "possible": false,
-  "targetHints": [
-    "07.19"
-  ],
-  "title": "商品详情",
-  "pagePurchaseWords": [],
-  "attempt": 10,
-  "at": "2026-07-10T11:35:02.133Z",
-  "expiresAt": "2026-07-12T01:00:00.000Z",
-  "itemUrl": "https://m.damai.cn/shows/item.html?itemId=1063631004645"
+    "itemUrl":  "https://m.damai.cn/shows/item.html?itemId=1063631004645",
+    "reason":  "No purchasable ticket signal found.",
+    "expiresAt":  "2026-07-12T01:00:00.000Z",
+    "attempt":  0,
+    "availableCount":  0,
+    "status":  "UNKNOWN",
+    "at":  "2026-07-10T11:41:02.1737373Z",
+    "inventoryNote":  "No purchasable ticket signal found."
 }
