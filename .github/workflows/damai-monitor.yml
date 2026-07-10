@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: damai-ticket-monitor
@@ -40,5 +40,14 @@ jobs:
           WATCHER_EXPIRES_AT: '2026-07-12T09:00:00+08:00'
           RUN_FOR_SECONDS: '230'
           POLL_INTERVAL_SECONDS: '20'
+          STATUS_FILE: docs/status.json
           BARK_KEY: ${{ secrets.BARK_KEY }}
           SMS_WEBHOOK_URL: ${{ secrets.SMS_WEBHOOK_URL }}
+      - name: Publish phone status
+        if: always()
+        run: |
+          git config user.name 'Damai Monitor'
+          git config user.email 'damai-monitor@users.noreply.github.com'
+          git add docs/status.json
+          git diff --cached --quiet || git commit -m 'Update monitor status'
+          git push
