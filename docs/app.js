@@ -18,9 +18,11 @@ function formatDate(value) {
 
 async function refresh() {
   try {
-    const response = await fetch(`./status.json?t=${Date.now()}`, { cache: 'no-store' });
+    const liveUrl = `https://api.github.com/repos/xuew56263-glitch/damai-ticket-watcher-jul2026/issues/1?t=${Date.now()}`;
+    const response = await fetch(liveUrl, { cache: 'no-store', headers: { accept: 'application/vnd.github+json' } });
     if (!response.ok) throw new Error('状态尚未发布');
-    const state = await response.json();
+    const issue = await response.json();
+    const state = JSON.parse(issue.body);
     document.getElementById('status').textContent = labels[state.status] || state.status || '正在监测';
     document.getElementById('status').dataset.state = state.status || 'UNKNOWN';
     document.getElementById('reason').textContent = state.reason || '未发现可购信号。';
@@ -36,7 +38,7 @@ async function refresh() {
       count.textContent = '--';
     }
     document.getElementById('attempt').textContent = state.attempt || '--';
-    document.getElementById('expires-at').textContent = formatDate(state.expiresAt) || '2026-07-12 09:00';
+    document.getElementById('expires-at').textContent = formatDate(state.expiresAt) || '2026-07-15 18:00';
     if (state.itemUrl) document.getElementById('ticket-link').href = state.itemUrl;
   } catch (error) {
     document.getElementById('status').textContent = '等待首轮检查';
@@ -46,4 +48,4 @@ async function refresh() {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');
 refresh();
-setInterval(refresh, 20_000);
+setInterval(refresh, 70_000);
