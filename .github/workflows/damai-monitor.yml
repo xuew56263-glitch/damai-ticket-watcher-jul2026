@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: damai-ticket-monitor
@@ -37,10 +38,13 @@ jobs:
         run: node src/github-actions-check.js
         env:
           DAMAI_ITEM_URL: https://m.damai.cn/shows/item.html?itemId=1063631004645
-          WATCHER_EXPIRES_AT: '2026-07-12T09:00:00+08:00'
+          WATCHER_EXPIRES_AT: '2026-07-15T18:00:00+08:00'
           RUN_FOR_SECONDS: '230'
           POLL_INTERVAL_SECONDS: '20'
           STATUS_FILE: docs/status.json
+          LIVE_STATUS_TOKEN: ${{ github.token }}
+          LIVE_STATUS_REPOSITORY: ${{ github.repository }}
+          LIVE_STATUS_ISSUE_NUMBER: '1'
           BARK_KEY: ${{ secrets.BARK_KEY }}
           SMS_WEBHOOK_URL: ${{ secrets.SMS_WEBHOOK_URL }}
       - name: Publish phone status
