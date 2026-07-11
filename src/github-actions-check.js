@@ -3,10 +3,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const itemUrl = process.env.DAMAI_ITEM_URL || 'https://m.damai.cn/shows/item.html?itemId=1063631004645';
-const expiresAt = Date.parse(process.env.WATCHER_EXPIRES_AT || '2026-07-12T09:00:00+08:00');
+const expiresAt = Date.parse(process.env.WATCHER_EXPIRES_AT || '2026-07-15T18:00:00+08:00');
 const barkKey = String(process.env.BARK_KEY || '').trim();
 const smsWebhookUrl = String(process.env.SMS_WEBHOOK_URL || '').trim();
 const statusFile = String(process.env.STATUS_FILE || '').trim();
+const liveStatusToken = String(process.env.LIVE_STATUS_TOKEN || '').trim();
+const liveStatusRepository = String(process.env.LIVE_STATUS_REPOSITORY || '').trim();
+const liveStatusIssueNumber = String(process.env.LIVE_STATUS_ISSUE_NUMBER || '').trim();
 const runForMs = Math.max(20_000, Number(process.env.RUN_FOR_SECONDS || 230) * 1000);
 const pollEveryMs = Math.max(15_000, Number(process.env.POLL_INTERVAL_SECONDS || 20) * 1000);
 const purchaseKeywords = ['\u7acb\u5373\u8d2d\u4e70', '\u7acb\u5373\u9884\u8ba2', '\u9009\u5ea7\u8d2d\u4e70', '\u7acb\u5373\u62a2\u8d2d', '\u63d0\u4ea4\u8ba2\u5355', '\u53bb\u8d2d\u4e70'];
@@ -30,6 +33,21 @@ async function writeStatus(payload) {
   if (!statusFile) return;
   await mkdir(path.dirname(statusFile), { recursive: true });
   await writeFile(statusFile, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+}
+
+async function publishLiveStatus(payload) {
+  if (!liveStatusToken || !liveStatusRepository || !liveStatusIssueNumber) return;
+  const response = await fetch(`https://api.github.com/repos/${liveStatusRepository}/issues/${liveStatusIssueNumber}`, {
+    method: 'PATCH',
+    headers: {
+      accept: 'application/vnd.github+json',
+      authorization: `Bearer ${liveStatusToken}`,
+      'content-type': 'application/json',
+      'x-github-api-version': '2022-11-28'
+    },
+    body: JSON.stringify({ body: JSON.stringify(payload) })
+  });
+  if (!response.ok) console.warn(`Live status update returned HTTP ${response.status}`);
 }
 
 async function sendBark(title, body) {
@@ -137,7 +155,7 @@ async function main() {
         expiresAt: new Date(expiresAt).toISOString(),
         itemUrl
       };
-      await writeStatus(snapshot);
+      await Promise.all([writeStatus(snapshot), publishLiveStatus(snapshot)]);
       console.log(JSON.stringify(snapshot));
       if (result.possible) {
         const title = '\u5927\u9ea6\u53ef\u80fd\u6709\u7968\u4e86';
