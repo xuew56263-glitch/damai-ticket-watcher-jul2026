@@ -2,14 +2,16 @@
   "status": "UNKNOWN",
   "reason": "No purchase signal found.",
   "possible": false,
-  "targetHints": [],
+  "targetHints": [
+    "07.19"
+  ],
   "title": "商品详情",
   "pagePurchaseWords": [],
   "availableCount": 0,
   "inventoryNote": "No purchasable ticket signal found.",
-  "runAttempt": 31,
-  "totalChecks": 151,
-  "at": "2026-07-14T05:53:32.459Z",
+  "runAttempt": 32,
+  "totalChecks": 152,
+  "at": "2026-07-14T05:53:52.385Z",
   "expiresAt": "2026-07-15T10:00:00.000Z",
   "itemUrl": "https://m.damai.cn/shows/item.html?itemId=1063631004645"
 }
