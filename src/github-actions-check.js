@@ -267,6 +267,7 @@ async function main() {
     while (Date.now() < stopAt) {
       attempt += 1;
       totalChecks += 1;
+      const checkStartedAt = Date.now();
       const result = await inspect(page, apiTexts);
       const snapshot = {
         ...result,
@@ -289,7 +290,7 @@ async function main() {
         if (!delivered) throw new Error('Ticket signal found, but no push channel is configured.');
         return;
       }
-      const nextCheckAt = Math.min(Date.now() + pollEveryMs, stopAt);
+      const nextCheckAt = Math.min(checkStartedAt + pollEveryMs, stopAt);
       if (nextCheckAt > Date.now()) await wait(nextCheckAt - Date.now());
     }
   } finally {
