@@ -4,19 +4,25 @@ on:
   schedule:
     - cron: '3-58/5 * * * *'
   workflow_dispatch:
+    inputs:
+      run_for_seconds:
+        description: Initial verification run duration
+        required: false
+        default: '19200'
 
 permissions:
+  actions: write
   contents: write
   issues: write
 
 concurrency:
   group: damai-ticket-monitor
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 345
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,12 +45,13 @@ jobs:
         env:
           DAMAI_ITEM_URL: https://m.damai.cn/shows/item.html?itemId=1063631004645
           WATCHER_EXPIRES_AT: '2026-07-15T18:00:00+08:00'
-          RUN_FOR_SECONDS: '230'
+          RUN_FOR_SECONDS: ${{ inputs.run_for_seconds || '19200' }}
           POLL_INTERVAL_SECONDS: '20'
           STATUS_FILE: docs/status.json
           LIVE_STATUS_TOKEN: ${{ github.token }}
           LIVE_STATUS_REPOSITORY: ${{ github.repository }}
           LIVE_STATUS_ISSUE_NUMBER: '1'
+          LIVE_STATUS_RAW_BRANCH: live-status
           BARK_KEY: ${{ secrets.BARK_KEY }}
           SMS_WEBHOOK_URL: ${{ secrets.SMS_WEBHOOK_URL }}
       - name: Publish phone status
@@ -55,3 +62,12 @@ jobs:
           git add docs/status.json
           git diff --cached --quiet || git commit -m 'Update monitor status'
           git push
+      - name: Continue cloud monitoring
+        if: always()
+        run: node tools/continue-github-monitor.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LIVE_STATUS_REPOSITORY: ${{ github.repository }}
+          LIVE_STATUS_WORKFLOW: damai-monitor.yml
+          LIVE_STATUS_REF: ${{ github.ref_name }}
+          WATCHER_EXPIRES_AT: '2026-07-15T18:00:00+08:00'
