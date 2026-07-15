@@ -10,9 +10,9 @@
   "pagePurchaseWords": [],
   "availableCount": 0,
   "inventoryNote": "No purchasable ticket signal found.",
-  "runAttempt": 840,
-  "totalChecks": 4800,
-  "at": "2026-07-15T07:45:28.207Z",
+  "runAttempt": 841,
+  "totalChecks": 4801,
+  "at": "2026-07-15T07:45:48.212Z",
   "expiresAt": "2026-07-15T10:00:00.000Z",
   "itemUrl": "https://m.damai.cn/shows/item.html?itemId=1063631004645"
 }
